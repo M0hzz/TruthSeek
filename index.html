@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TruthSeek</title>
+  <meta name="description" content="A string-diagram discovery board: load nouns, relationships and events from JSON and follow the ripples.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='12' r='9' fill='%23c0302b'/%3E%3Cpath d='M16 21 L16 31' stroke='%23555' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="12" r="9" fill="#c0302b"/><circle cx="13" cy="9" r="2.5" fill="#fff" opacity=".55"/><path d="M16 21 L16 31" stroke="currentColor" stroke-width="3"/></svg>
+      <span>TruthSeek</span>
+    </div>
+    <div class="tools">
+      <div class="group">
+        <button id="btn-open" class="btn" type="button">Open…</button>
+        <input id="file-input" type="file" accept=".json,application/json" hidden>
+        <button id="btn-sample" class="btn" type="button">Sample</button>
+        <button id="btn-export" class="btn" type="button">Export</button>
+      </div>
+      <div class="group">
+        <button id="btn-add" class="btn" type="button">+ Noun</button>
+        <input id="search" type="search" placeholder="Find a noun…" list="noun-list" aria-label="Find a noun">
+        <datalist id="noun-list"></datalist>
+      </div>
+      <div class="group toggles">
+        <label class="toggle"><input type="checkbox" id="tg-labels" checked> Labels</label>
+        <label class="toggle"><input type="checkbox" id="tg-ghosts"> Hidden links</label>
+        <label class="toggle"><input type="checkbox" id="tg-gone" checked> Gone</label>
+      </div>
+      <div class="group">
+        <button id="btn-settings" class="btn" type="button" aria-expanded="false" aria-controls="settings-pop">Engine</button>
+        <button id="btn-fit" class="btn" type="button" title="Fit the board to the screen (F)">Fit</button>
+        <button id="btn-relayout" class="btn" type="button" title="Forget card positions and lay the board out again">Re-layout</button>
+        <button id="btn-help" class="btn icon" type="button" aria-label="Help">?</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="board-wrap" aria-label="Board">
+      <svg id="board" role="img" aria-label="String diagram"></svg>
+      <div class="legend" id="legend"></div>
+      <div class="empty" id="empty">
+        <div class="empty-card">
+          <h1>Pin it up. Follow the string.</h1>
+          <p>Drop a JSON file of nouns, relationships and events anywhere on this page. TruthSeek pins them to a board, plays the events in order and shows you the ripples you did not write down.</p>
+          <div class="btn-row">
+            <button id="empty-open" class="btn primary" type="button">Open a JSON file</button>
+            <button id="empty-sample" class="btn" type="button">Try the sample board</button>
+            <button id="empty-resume" class="btn" type="button" hidden>Resume</button>
+          </div>
+          <details>
+            <summary>What should the file look like?</summary>
+<pre>{
+  "title": "My board",
+  "nouns": [
+    { "id": "guild", "name": "The Guild", "type": "faction", "weight": 5 },
+    { "id": "mara", "name": "Mara", "type": "person", "weight": 2,
+      "parent": "guild", "context": "Keeps the books." }
+  ],
+  "relationships": [
+    { "from": "mara", "to": "guild", "type": "embezzles from",
+      "strength": -0.4, "direction": "one-way" }
+  ],
+  "events": [
+    { "name": "The Audit", "time": 1204,
+      "effects": [ { "target": "mara", "power": -1 } ] }
+  ]
+}</pre>
+            <p>Open <b>?</b> in the toolbar for the full format.</p>
+          </details>
+        </div>
+      </div>
+      <div class="drop-hint" aria-hidden="true">Drop the JSON file to open it</div>
+    </section>
+
+    <aside class="panel" aria-label="Details">
+      <nav class="tabs" role="tablist">
+        <button type="button" data-tab="inspect">Inspect</button>
+        <button type="button" data-tab="discover">Discover</button>
+        <button type="button" data-tab="events">Events</button>
+      </nav>
+      <div class="panel-body" id="panel-body"></div>
+    </aside>
+  </main>
+
+  <footer class="timeline" aria-label="Timeline">
+    <div class="tl-buttons">
+      <button id="btn-prev" class="btn icon" type="button" aria-label="Previous event">‹</button>
+      <button id="btn-play" class="btn icon" type="button" aria-label="Play the timeline">▶</button>
+      <button id="btn-next" class="btn icon" type="button" aria-label="Next event">›</button>
+    </div>
+    <div class="tl-track">
+      <input type="range" id="tl-range" min="0" max="0" value="0" step="1" aria-label="Point in time">
+      <div class="tl-ticks" id="tl-ticks"></div>
+    </div>
+    <div class="tl-label" id="tl-label" aria-live="polite"></div>
+  </footer>
+
+  <div id="settings-pop" class="popover" hidden>
+    <h3>Impact engine</h3>
+    <p class="muted small">How power spreads through the board. Saved into the file when you export.</p>
+    <div id="settings-fields"></div>
+    <button id="settings-reset" class="btn small" type="button">Reset to defaults</button>
+  </div>
+
+  <dialog id="help">
+    <div class="help-body">
+      <h2>Using TruthSeek</h2>
+      <h3>On the board</h3>
+      <ul>
+        <li><b>Click</b> a card or string to inspect it. Click empty board to clear.</li>
+        <li><b>Drag</b> a card to move it; it stays where you leave it. Drag the board to pan; scroll to zoom.</li>
+        <li><b>Shift-drag</b> from one card to another to tie a new string.</li>
+        <li><b>Double-click</b> a card to fold its members inside it (and again to unfold).</li>
+        <li>Keys: <kbd>←</kbd> <kbd>→</kbd> step through events, <kbd>Space</kbd> plays, <kbd>F</kbd> fits, <kbd>Esc</kbd> clears, <kbd>Delete</kbd> removes the selection.</li>
+      </ul>
+      <h3>How power is worked out</h3>
+      <ul>
+        <li>Every noun starts with its <b>weight</b>. Events add to or take from it.</li>
+        <li>A noun that contains others gains a share of their power (<i>members → container</i>), and passes a share of its own down to them.</li>
+        <li>Power ripples along strings: each hop multiplies by the string's strength, and every hop after the first also by the <i>falloff</i>. Negative strengths carry opposition.</li>
+        <li><b>Total power</b> = own power + members + everything arriving through strings.</li>
+      </ul>
+      <h3>File format</h3>
+<pre>{
+  "title": "…",
+  "nouns": [{
+    "id": "unique_id", "name": "Shown name", "type": "person",
+    "weight": 3,                 // importance, default 1
+    "parent": "other_id",        // the noun it sits inside
+    "context": "Free text",      // its own back-story
+    "tags": ["a", "b"],
+    "exists": false              // optional: not there at the start
+  }],
+  "relationships": [{
+    "from": "id", "to": "id", "type": "funds",
+    "strength": 0.7,             // −1 opposes … +1 supports
+    "direction": "one-way"       // or "two-way" (default)
+  }],
+  "events": [{
+    "name": "…", "time": 1204,   // number or date like "2024-03-01"
+    "description": "…",
+    "involves": ["id"],
+    "effects": [
+      { "target": "id", "power": -2 },
+      { "target": "id", "parent": "new_container_id" },
+      { "target": "id", "exists": false },
+      { "relationship": ["from_id", "to_id"], "strength": 0.3 },
+      { "link": { "from": "id", "to": "id", "type": "allies",
+                  "strength": 0.5, "direction": "two-way" } },
+      { "unlink": ["from_id", "to_id"] }
+    ]
+  }]
+}</pre>
+      <p class="muted small">Extra fields you add are kept when you export.</p>
+      <div class="btn-row"><button id="help-close" class="btn primary" type="button">Close</button></div>
+    </div>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/model.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/board.js"></script>
+  <script src="samples/salt-coast.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
